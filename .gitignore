@@ -1,0 +1,28 @@
+# Build and distribution
+build/
+dist/
+*.spec
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+
+# Clipboard data
+clipboard_store.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+venv/
+.env
