@@ -9,11 +9,11 @@ Auto-sync clipboard between your Windows PC and iPhone over local Wi-Fi. Copy on
 python server.py
 ```
 
-### 2. Get Your PC's IP
+### 2. Get Your Hostname
 ```powershell
-ipconfig
+hostname
 ```
-(Look for IPv4 Address, e.g., `192.168.1.100`)
+(e.g., `Mars` → use `mars.local`)
 
 ### 3. Launch the Tray App
 ```powershell
@@ -29,7 +29,7 @@ Green clipboard icon appears in system tray. Done! Now everything syncs automati
 
 1. **Get Clipboard**
 2. **Get Contents of URL**
-   - URL: `http://<YOUR-PC-IP>:5000/clip`
+   - URL: `http://<YOUR-HOSTNAME>.local:5000/clip`
    - Method: **POST**
    - Body (JSON):
      - `type`: `text`
@@ -45,7 +45,7 @@ Green clipboard icon appears in system tray. Done! Now everything syncs automati
 2. **Convert Image** to PNG
 3. **Encode** with Base64
 4. **Get Contents of URL**
-   - URL: `http://<YOUR-PC-IP>:5000/clip`
+   - URL: `http://<YOUR-HOSTNAME>.local:5000/clip`
    - Method: **POST**
    - Body (JSON):
      - `type`: `image`
@@ -55,7 +55,7 @@ Green clipboard icon appears in system tray. Done! Now everything syncs automati
 
 ### 📥 Pull from PC
 
-1. **Get Contents of URL** → `http://<YOUR-PC-IP>:5000/clip/latest` (GET)
+1. **Get Contents of URL** → `http://<YOUR-HOSTNAME>.local:5000/clip/latest` (GET)
 2. **Get Value** for `data`
 3. **Copy to Clipboard**
 
@@ -111,7 +111,8 @@ Copy-Item "dist\ClipboardSync.exe" -Destination $startup
 | Issue | Solution |
 |-------|----------|
 | Image not pasting | Check Base64 encoding in shortcut; verify image size |
-| Shortcut won't run | Verify PC IP is correct; ensure server is running; check firewall |
+| Shortcut won't run | Verify hostname is correct (try `<hostname>.local`); ensure server is running; check iPhone & PC are on same network |
+| `.local` not resolving | Try your IP address instead; enable mDNS on your router if needed |
 | App crashes | Try running `python clipboard_tray.py` directly to see errors |
 
 ---
@@ -123,11 +124,18 @@ Copy-Item "dist\ClipboardSync.exe" -Destination $startup
 $env:CLIPBOARD_HOST = "0.0.0.0"
 $env:CLIPBOARD_PORT = "5000"
 
-# Client
+# Client (if using IP instead of hostname)
 $env:CLIPBOARD_SERVER = "http://192.168.1.100:5000"
 
 python server.py
 ```
+
+## Why Use `.local` Hostname?
+
+✅ Works even if your PC's IP changes
+✅ No need to update shortcuts if network changes
+✅ Simpler than remembering IP addresses
+✅ Uses mDNS (built into Windows & macOS)
 
 ### Start the server
 ```powershell
