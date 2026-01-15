@@ -39,6 +39,27 @@ SERVER = os.environ.get("CLIPBOARD_SERVER", "http://localhost:5000")
 POLL_INTERVAL = 0.5
 
 
+def start_server_thread():
+    """Start the server in a background thread."""
+    def run_server():
+        try:
+            # Import and run server
+            import sys
+            from pathlib import Path
+            
+            # Add current directory to path so we can import server
+            sys.path.insert(0, str(Path(__file__).parent))
+            import server
+            
+            # Start the server
+            server.HTTPServer((server.HOST, server.PORT), server.ClipboardHandler).serve_forever()
+        except Exception as e:
+            print(f"Server error: {e}")
+    
+    server_thread = threading.Thread(target=run_server, daemon=True, name="ServerThread")
+    server_thread.start()
+
+
 class ClipboardSync:
     def __init__(self):
         self.running = True
@@ -48,6 +69,9 @@ class ClipboardSync:
         self.last_source = ""
         self.status = "Starting..."
         self.icon = None
+        
+        # Start the embedded server
+        start_server_thread()
         
     def run_ps(self, command: str, check: bool = True) -> subprocess.CompletedProcess:
         result = subprocess.run(
