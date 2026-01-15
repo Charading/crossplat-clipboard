@@ -37,22 +37,111 @@ except ImportError:
 
 SERVER = os.environ.get("CLIPBOARD_SERVER", "http://localhost:5000")
 POLL_INTERVAL = 0.5
+HOST = os.environ.get("CLIPBOARD_HOST", "0.0.0.0")
+PORT = int(os.environ.get("CLIPBOARD_PORT", "5000"))
 
 
 def start_server_thread():
-    """Start the server in a background thread."""
+    """Start the embedded server in a background thread."""
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import json
+    from pathlib import Path
+    from urllib.parse import urlparse
+    
+    # Use temp directory for clipboard store
+    STORE_PATH = Path(tempfile.gettempdir()) / "clipboard_store.json"
+    
+    def load_store():
+        if STORE_PATH.exists():
+            try:
+                with STORE_PATH.open("r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                return {}
+        return {}
+    
+    def save_store(data):
+        try:
+            with STORE_PATH.open("w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=True, indent=2)
+        except Exception:
+            pass
+    
+    class ClipboardHandler(BaseHTTPRequestHandler):
+        server_version = "ClipboardServer/0.1"
+        
+        def log_message(self, format, *args):
+            pass  # Suppress server logs
+        
+        def _send_json(self, status, body):
+            payload = json.dumps(body).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(payload)
+        
+        def do_OPTIONS(self):
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+        
+        def do_GET(self):
+            parsed = urlparse(self.path)
+            if parsed.path in ("/clip", "/clip/latest"):
+                store = load_store()
+                if store:
+                    self._send_json(200, store)
+                else:
+                    self._send_json(404, {"error": "No clip available"})
+                return
+            self._send_json(404, {"error": "Not found"})
+        
+        def do_POST(self):
+            parsed = urlparse(self.path)
+            if parsed.path != "/clip":
+                self._send_json(404, {"error": "Not found"})
+                return
+            
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0:
+                self._send_json(400, {"error": "Missing body"})
+                return
+            
+            try:
+                raw = self.rfile.read(length)
+                incoming = json.loads(raw.decode("utf-8"))
+            except Exception:
+                self._send_json(400, {"error": "Invalid JSON"})
+                return
+            
+            clip_type = incoming.get("type")
+            data = incoming.get("data")
+            
+            if clip_type not in ("text", "image"):
+                self._send_json(400, {"error": "type must be 'text' or 'image'"})
+                return
+            if data is None:
+                self._send_json(400, {"error": "data is required"})
+                return
+            
+            payload = {
+                "type": clip_type,
+                "data": data,
+                "mime": incoming.get("mime", "text/plain" if clip_type == "text" else "image/png"),
+                "source": incoming.get("source", "unknown"),
+                "timestamp": time.time(),
+            }
+            save_store(payload)
+            self._send_json(200, {"status": "ok"})
+    
     def run_server():
         try:
-            # Import and run server
-            import sys
-            from pathlib import Path
-            
-            # Add current directory to path so we can import server
-            sys.path.insert(0, str(Path(__file__).parent))
-            import server
-            
-            # Start the server
-            server.HTTPServer((server.HOST, server.PORT), server.ClipboardHandler).serve_forever()
+            server = HTTPServer((HOST, PORT), ClipboardHandler)
+            server.serve_forever()
         except Exception as e:
             print(f"Server error: {e}")
     
